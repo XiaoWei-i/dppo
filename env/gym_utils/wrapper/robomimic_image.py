@@ -110,6 +110,8 @@ class RobomimicImageWrapper(gym.Env):
         if self.normalize:
             obs["state"] = self.normalize_obs(obs["state"])
         obs["rgb"] *= 255  # [0, 1] -> [0, 255], in float64
+        # print("obs rgb shape:", obs["rgb"].shape)
+        # obs["rgb"] = np.transpose(obs["rgb"], (2, 0, 1))
         return obs
 
     def seed(self, seed=None):
