@@ -22,6 +22,8 @@ import torch.nn.functional as F
 from model.diffusion.diffusion import DiffusionModel, Sample
 from model.diffusion.sampling import make_timesteps, extract
 from torch.distributions import Normal
+from diffusers.schedulers.scheduling_dpmsolver_multistep import DPMSolverMultistepScheduler
+from diffusers.schedulers.scheduling_dpmsolver_sde import DPMSolverSDEScheduler
 
 
 class VPGDiffusion_DPMSolver(DiffusionModel):
@@ -42,6 +44,7 @@ class VPGDiffusion_DPMSolver(DiffusionModel):
         learn_eta=False,
         use_dpm_solver=False,
         dpmsolver_steps=10,
+        dpmsolver_order=2,
         **kwargs,
     ):
         super().__init__(
@@ -49,12 +52,16 @@ class VPGDiffusion_DPMSolver(DiffusionModel):
             network_path=network_path,
             **kwargs,
         )
-        self.use_dpmsolver = use_dpm_solver
+        self.dpmsolver_order = dpmsolver_order
         self.dpmsolver_steps = dpmsolver_steps
         assert ft_denoising_steps <= self.denoising_steps
         # assert ft_denoising_steps <= self.ddim_steps if self.use_ddim else True
         assert ft_denoising_steps <= self.dpmsolver_steps if self.use_dpmsolver else True        
         assert not (learn_eta and not self.use_ddim), "Cannot learn eta with DDPM."
+        print(f"Using DDIM: {self.use_ddim}")
+        print(f"Using DPMSolver: {self.use_dpmsolver}")
+        print(f"Using DPMSolver order: {self.dpmsolver_order}")
+        print(f"Using DPMSolver step: {self.dpmsolver_steps}")
 
         # Number of denoising steps to use with fine-tuned model. Thus denoising_step - ft_denoising_steps is the number of denoising steps to use with original model.
         self.ft_denoising_steps = ft_denoising_steps
@@ -64,6 +71,19 @@ class VPGDiffusion_DPMSolver(DiffusionModel):
 
         # Minimum std used in denoising process when sampling action - helps exploration
         self.min_sampling_denoising_std = min_sampling_denoising_std
+        if self.use_dpmsolver:
+            self.noise_scheduler_deterministic = DPMSolverMultistepScheduler(
+                num_train_timesteps=self.denoising_steps,
+                beta_schedule='squaredcos_cap_v2',
+                prediction_type='epsilon',
+                solver_order=self.dpmsolver_order
+            )
+            self.noise_scheduler_stochastic = DPMSolverSDEScheduler(
+                num_train_timesteps=self.denoising_steps,
+                beta_schedule='squaredcos_cap',
+                prediction_type='epsilon',
+                # solver_order=self.dpmsolver_order # 2 order only
+            )
 
         # Minimum std used in calculating denoising logprobs - for stability
         self.min_logprob_denoising_std = min_logprob_denoising_std
@@ -258,6 +278,9 @@ class VPGDiffusion_DPMSolver(DiffusionModel):
 
         # Get updated minimum sampling denoising std
         min_sampling_denoising_std = self.get_min_sampling_denoising_std()
+        # Set dpmsolver step values
+        self.noise_scheduler_stochastic.set_timesteps(self.dpmsolver_steps)
+        self.noise_scheduler_deterministic.set_timesteps(self.dpmsolver_steps)
 
         # Loop
         x = torch.randn((B, self.horizon_steps, self.action_dim), device=device)
@@ -272,34 +295,17 @@ class VPGDiffusion_DPMSolver(DiffusionModel):
             chain.append(x)
         for i, t in enumerate(t_all):
             t_b = make_timesteps(B, t, device)
-            index_b = make_timesteps(B, i, device)
-            mean, logvar, _ = self.p_mean_var(
-                x=x,
-                t=t_b,
-                cond=cond,
-                index=index_b,
-                use_base_policy=use_base_policy,
-                deterministic=deterministic,
-            )
-            std = torch.exp(0.5 * logvar)
 
-            # Determine noise level
-            if self.use_ddim:
-                if deterministic:
-                    std = torch.zeros_like(std)
-                else:
-                    std = torch.clip(std, min=min_sampling_denoising_std)
+            # Predict the model output
+            noise = self.actor(x=x, time=t_b, cond=cond)
+            
+            # Compute previous actions: x_t -> x_t-1
+            if deterministic:
+                x = self.noise_scheduler_deterministic.step(
+                    noise, t, x).prev_sample
             else:
-                if deterministic and t == 0:
-                    std = torch.zeros_like(std)
-                elif deterministic:  # still keep the original noise
-                    std = torch.clip(std, min=1e-3)
-                else:  # use higher minimum noise
-                    std = torch.clip(std, min=min_sampling_denoising_std)
-            noise = torch.randn_like(x).clamp_(
-                -self.randn_clip_value, self.randn_clip_value
-            )
-            x = mean + std * noise
+                x = self.noise_scheduler_stochastic.step(
+                    noise, t, x).prev_sample
 
             # clamp action at final step
             if self.final_action_clip_value is not None and i == len(t_all) - 1:

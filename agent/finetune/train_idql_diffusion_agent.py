@@ -11,7 +11,7 @@ import einops
 import numpy as np
 import torch
 import logging
-import wandb
+import swanlab
 from copy import deepcopy
 
 log = logging.getLogger(__name__)
@@ -332,7 +332,7 @@ class TrainIDQLDiffusionAgent(TrainAgent):
                         f"eval: success rate {success_rate:8.4f} | avg episode reward {avg_episode_reward:8.4f} | avg best reward {avg_best_reward:8.4f}"
                     )
                     if self.use_wandb:
-                        wandb.log(
+                        swanlab.log(
                             {
                                 "success rate - eval": success_rate,
                                 "avg episode reward - eval": avg_episode_reward,
@@ -340,7 +340,7 @@ class TrainIDQLDiffusionAgent(TrainAgent):
                                 "num episode - eval": num_episode_finished,
                             },
                             step=self.itr,
-                            commit=False,
+                            # commit=False,
                         )
                     run_results[-1]["eval_success_rate"] = success_rate
                     run_results[-1]["eval_episode_reward"] = avg_episode_reward
@@ -350,7 +350,7 @@ class TrainIDQLDiffusionAgent(TrainAgent):
                         f"{self.itr}: step {cnt_train_step:8d} | loss actor {loss_actor:8.4f} | reward {avg_episode_reward:8.4f} | t:{time:8.4f}"
                     )
                     if self.use_wandb:
-                        wandb.log(
+                        swanlab.log(
                             {
                                 "total env step": cnt_train_step,
                                 "loss - actor": loss_actor,
@@ -359,7 +359,7 @@ class TrainIDQLDiffusionAgent(TrainAgent):
                                 "num episode - train": num_episode_finished,
                             },
                             step=self.itr,
-                            commit=True,
+                            # commit=True,
                         )
                     run_results[-1]["train_episode_reward"] = avg_episode_reward
                 with open(self.result_path, "wb") as f:

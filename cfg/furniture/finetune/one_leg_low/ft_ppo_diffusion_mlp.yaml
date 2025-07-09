@@ -21,6 +21,8 @@ cond_steps: 1
 horizon_steps: 8
 act_steps: 8
 use_ddim: True
+use_dpmsolver: True
+dpmsolver_order: 2
 
 env:
   n_envs: 1000
@@ -85,6 +87,9 @@ model:
   #
   use_ddim: ${use_ddim}
   ddim_steps: ${ft_denoising_steps}
+  use_dpmsolver: ${use_dpmsolver} 
+  dpmsolver_steps: ${ft_denoising_steps}
+  dpmsolver_order: ${dpmsolver_order}
   learn_eta: False
   eta:
     base_eta: 1

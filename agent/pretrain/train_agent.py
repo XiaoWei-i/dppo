@@ -10,7 +10,7 @@ from omegaconf import OmegaConf
 import torch
 import hydra
 import logging
-import wandb
+import swanlab
 from copy import deepcopy
 
 log = logging.getLogger(__name__)
@@ -68,8 +68,8 @@ class PreTrainAgent:
         # Wandb
         self.use_wandb = cfg.wandb is not None
         if cfg.wandb is not None:
-            wandb.init(
-                entity=cfg.wandb.entity,
+            swanlab.init(
+                # entity=cfg.wandb.entity,
                 project=cfg.wandb.project,
                 name=cfg.wandb.run,
                 config=OmegaConf.to_container(cfg, resolve=True),

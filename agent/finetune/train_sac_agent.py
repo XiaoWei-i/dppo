@@ -9,7 +9,7 @@ import pickle
 import numpy as np
 import torch
 import logging
-import wandb
+import swanlab
 from collections import deque
 
 log = logging.getLogger(__name__)
@@ -297,7 +297,7 @@ class TrainSACAgent(TrainAgent):
                         f"eval: success rate {success_rate:8.4f} | avg episode reward {avg_episode_reward:8.4f} | avg best reward {avg_best_reward:8.4f}"
                     )
                     if self.use_wandb:
-                        wandb.log(
+                        swanlab.log(
                             {
                                 "success rate - eval": success_rate,
                                 "avg episode reward - eval": avg_episode_reward,
@@ -305,7 +305,7 @@ class TrainSACAgent(TrainAgent):
                                 "num episode - eval": num_episode_finished,
                             },
                             step=self.itr,
-                            commit=False,
+                            # commit=False,
                         )
                     run_results[-1]["eval_success_rate"] = success_rate
                     run_results[-1]["eval_episode_reward"] = avg_episode_reward
@@ -324,10 +324,10 @@ class TrainSACAgent(TrainAgent):
                         }
                         if loss_actor is not None:
                             wandb_log_dict["loss - actor"] = loss_actor
-                        wandb.log(
+                        swanlab.log(
                             wandb_log_dict,
                             step=self.itr,
-                            commit=True,
+                            # commit=True,
                         )
                     run_results[-1]["train_episode_reward"] = avg_episode_reward
                 with open(self.result_path, "wb") as f:

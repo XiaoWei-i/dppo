@@ -4,7 +4,7 @@ Pre-training Gaussian/GMM policy
 """
 
 import logging
-import wandb
+import swanlab
 import numpy as np
 
 log = logging.getLogger(__name__)
@@ -85,16 +85,16 @@ class TrainGaussianAgent(PreTrainAgent):
                 )
                 if self.use_wandb:
                     if loss_val is not None:
-                        wandb.log(
-                            {"loss - val": loss_val}, step=self.epoch, commit=False
+                        swanlab.log(
+                            {"loss - val": loss_val}, step=self.epoch, # commit=False
                         )
-                    wandb.log(
+                    swanlab.log(
                         {
                             "loss - train": loss_train,
                             "entropy - train": ent_train,
                         },
                         step=self.epoch,
-                        commit=True,
+                        # commit=True,
                     )
 
             # count
